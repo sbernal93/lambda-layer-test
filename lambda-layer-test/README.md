@@ -141,7 +141,6 @@ Como mejoras se pueden realizar lo siguiente:
  - Probar actualizar el layer y hacer que actualice la dependencia, sin tener que actualizar el lambda.
  - 
 ### Repos
-El codigo utilizado esta disponible en el siguiente repo:
- - [Repo](https://github.com/sbernal93/lambda-layer-test)
-
-Donde: lambda-layer-test es el lambda y lambda-layer-test-dependency es la dependencia
+El codigo utilizado esta disponible en los siguientes repos:
+ - [Dependencia](https://github.com/sbernal93/lambda-layer-test-dependency)
+ - [Lambda](https://github.com/sbernal93/lambda-layer-test)
