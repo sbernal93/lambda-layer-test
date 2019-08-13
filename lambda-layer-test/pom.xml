@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.sbernal93</groupId>
   <artifactId>lambda-layer-test</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.0.1</version>
   
       <dependencies>
         <dependency>
@@ -13,7 +13,7 @@
         <dependency>
         	<groupId>com.sbernal93</groupId>
         	<artifactId>lambda-layer-test-dependency</artifactId>
-        	<version>0.0.1-SNAPSHOT</version>
+        	<version>0.0.1</version>
         	<scope>provided</scope>
         	<!-- 
         	<scope>system</scope>
