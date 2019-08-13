@@ -12,7 +12,7 @@ public class LayerUtil {
      * @param str
      */
     public static final void printMethod(String str) {
-        System.out.println("This is a message from a layer!");
+        System.out.println("This is a message from a layer with a different version!");
         System.out.println("The message is: [" + str + "]");
     }
 
