@@ -130,6 +130,83 @@ Ahora le agregamos el layer:
 Ahora si corremos el lambda, funciona perfecto:
 ![Corrida exitosa](https://imgur.com/drFc9pf.png)
 
+## Mejoras
+
+En la prueba inicial, usamos ``maven-shade-plugin`` para poder crear un uber-jar de la dependencia, sin embargo, Lambda Layers espera el jar de una forma especifica, para la cual tuvimos que manualmente crear el .zip necesario para subirlo. Lo ideal seria que esto se genere automaticamente. Para esto podemos usar un assembly descriptor de maven que nos haga este trabajo, y asi al empaquetarlo ya lo tenemos de la manera que buscamos. Para esto creamos el assembly descriptor de la siguiente manera:
+
+```
+<assembly 
+    xmlns="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.3" 
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+    xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.3 http://maven.apache.org/xsd/assembly-1.1.3.xsd"> 
+    <id>package-assembly</id> 
+    <formats> 
+        <format>zip</format> 
+    </formats> 
+    <includeBaseDirectory>false</includeBaseDirectory> 
+    <fileSets> 
+        <fileSet> 
+            <directory>${project.build.directory}</directory> 
+            <outputDirectory>java/lib</outputDirectory> 
+            <includes> 
+                <include>**/*.jar</include> 
+            </includes> 
+            <excludes>
+            	<exclude>**/original*</exclude>
+            </excludes>
+        </fileSet> 
+    </fileSets> 
+</assembly> 
+```
+El formato se especifica en ``<format>`` como .zip y en el ``<outputDirectory>`` el directorio que queremos que se ponga el output. Luego incluimos el jar que queremos con el ``<include>`` y excluimos el "original-*.jar" que es creado por el ``maven-shade-plugin`` en el ``<exclude>``.
+ 
+Teniendo esto lo referenciamos en el pom, dejando todavía el plugin de ``maven-shade-plugin``. Como lo colocamos en la carpeta de ``src/main/resources``, apuntamos el ``maven-assembly`` a que busque el descriptor ahí:
+```
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>2.3</version>
+				<configuration>
+					<createDependencyReducedPom>false</createDependencyReducedPom>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<version>3.0.0</version>
+				<configuration>
+					<appendAssemblyId>false</appendAssemblyId>
+					<finalName>${project.artifactId}</finalName>
+					<descriptors>
+						<descriptor>src/main/resources/assemblies/package-assembly.xml</descriptor>
+					</descriptors>
+				</configuration>
+				<executions>
+					<execution>
+						<id>pack</id>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+```
+
+Ahora al correr ``mvn clean package`` tenemos el .zip con el formato deseado. Esto nos ahorra tiempo de trabajo manual y posible errores. 
+
+
 ## Conclusión
 Y asi tenemos un lambda corriendo con una dependencia en Lambda layer. Si bien esta prueba es pequeña con una dependencia de pocos KBs, en casos reales, las dependencias pueden hacer que el lambda pese mas de 20MBs, con esto podemos reducir los tamaños de los paquetes separando dependencias que son usadas por diferentes lambdas
 **Importante:** si bien con lambda layer reducimos el tamaño del paquete, actualmente solo se pueden poner 5 layers como maximo para un Lambda, este limite se debe tomar en consideracion para cualquier diseño que involucre Lambdas y Layers
@@ -137,11 +214,11 @@ Y asi tenemos un lambda corriendo con una dependencia en Lambda layer. Si bien e
 ### Mejoras
 Como mejoras se pueden realizar lo siguiente:
 
- - La dependencia se movio manual a una carpeta y se creo el zip para probar, buscar para que maven cree el paquete directamente como queremos para poder subir a layer
  - Probar actualizar el layer y hacer que actualice la dependencia, sin tener que actualizar el lambda.
- - 
+ - El assembly descriptor se creo dentro del proyecto de lambda-layer-test-dependency, podria ser creado como un proyecto aparte y ser reutilizado por otras dependencias
+ 
 ### Repos
-El codigo utilizado esta disponible en el siguiente repo:
- - [Repo](https://github.com/sbernal93/lambda-layer-test)
+El codigo utilizado esta disponible en los siguientes repos:
+ - [Dependencia](https://github.com/sbernal93/lambda-layer-test-dependency)
+ - [Lambda](https://github.com/sbernal93/lambda-layer-test)
 
-Donde: lambda-layer-test es el lambda y lambda-layer-test-dependency es la dependencia
