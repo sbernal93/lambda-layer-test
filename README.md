@@ -206,15 +206,36 @@ Teniendo esto lo referenciamos en el pom, dejando todavía el plugin de ``maven-
 
 Ahora al correr ``mvn clean package`` tenemos el .zip con el formato deseado. Esto nos ahorra tiempo de trabajo manual y posible errores. 
 
+## Actualización del Layer
+
+Ahora vamos a ver que pasa una vez actualizamos la dependencia, y creamos una nueva versión del Layer y se la ponemos al Lambda.
+Primero, actualizamos la versión de la dependencia de ``0.0.1-SNAPSHOT`` a ``0.0.2-SNAPSHOT`` en el pom. Luego editamos un poco el código para notar que versión usa, asi que cambiamos lo que imprime el método que habíamos creado anteriormente:
+```
+    public static final void printMethod(String str) {
+        System.out.println("This is a message from a layer with a different version!");
+        System.out.println("The message is: [" + str + "]");
+    }
+```
+Empaquetamos la dependencia y la subimos a Lambda Layer y creamos una nueva versión, el jar generado contiene la versión ``0.0.2-SNAPSHOT``. 
+Vamos a nuestro lambda, y sin cambiar el código, le quitamos la versión anterior del Layer, y le asociamos la versión nueva del Layer. Al volver a ejecutar el Lambda, este toma los cambios correctamente:
+![Corrida exitosa](https://imgur.com/VuoIGnH.png)
 
 ## Conclusión
-Y asi tenemos un lambda corriendo con una dependencia en Lambda layer. Si bien esta prueba es pequeña con una dependencia de pocos KBs, en casos reales, las dependencias pueden hacer que el lambda pese mas de 20MBs, con esto podemos reducir los tamaños de los paquetes separando dependencias que son usadas por diferentes lambdas
-**Importante:** si bien con lambda layer reducimos el tamaño del paquete, actualmente solo se pueden poner 5 layers como maximo para un Lambda, este limite se debe tomar en consideracion para cualquier diseño que involucre Lambdas y Layers
+Y asi tenemos un lambda corriendo con una dependencia en Lambda layer. Si bien esta prueba es pequeña con una dependencia de pocos KBs, en casos reales, las dependencias pueden hacer que el lambda pese mas de 20MBs, con esto podemos reducir los tamaños de los paquetes separando dependencias que son usadas por diferentes lambdas.
+Al actualizar el Layer, se actualiza la dependencia del Lambda sin tener que modificar directamente el código del Lambda. 
+Ventajas de esto:
+ - Actualización de dependencias de manera sencilla sin tener que modificar el Lambda
+ - Actualización simultanea de muchos lambdas al actualizar su Layer (especialmente si se usa una herramienta de IaC)
+ 
+Posibles desventajas o casos a contemplar:
+ - Puede traer problemas de incompatibilidad si los cambios no se prueban primero, especialmente para procesos que incluyan muchos lambdas. Se puede disminuir el riesgo si se realizan pruebas de integración automatizadas
+ - El codigo del lambda puede quedar desactualizado en dessintonia con lo que esta deployado. Esto puede causar riesgos cuando se deba actualizar el lambda. 
+
+**Importante:** si bien con lambda layer reducimos el tamaño del paquete, actualmente solo se pueden poner 5 layers como maximo para un Lambda, este limite se debe tomar en consideración para cualquier diseño que involucre Lambdas y Layers
 
 ### Mejoras
 Como mejoras se pueden realizar lo siguiente:
 
- - Probar actualizar el layer y hacer que actualice la dependencia, sin tener que actualizar el lambda.
  - El assembly descriptor se creo dentro del proyecto de lambda-layer-test-dependency, podria ser creado como un proyecto aparte y ser reutilizado por otras dependencias
  
 ### Repos
