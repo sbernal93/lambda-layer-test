@@ -1,20 +1,20 @@
 
 # Lambda Layers
-Un layer es un archive zip que contiene librerías, un runtime customizado u otras dependencias, que se pueden adjuntar a una función lambda. Con layers se pueden usar librerías en los lambdas sin la necesidad de empaquetarlas con el paquete de deployment. 
+A layer is a zip archive that contains libraries, custom runtime or other dependencies that can be attached to a Lambda function: [docs](https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html). With layers, libraries can be used with lambdas without the need to include them in the deployment package.
+I will be testing Lamba layers using java and maven. The spanish version of this text is available [here](https://github.com/sbernal93/lambda-layer-test/blob/master/README_ES.md)
 
-## Layers con Maven
-Para trabajar una dependencia como una lambda layer, se necesitan seguir los siguientes pasos:
+## Layers with Maven
+To add a dependency to a Lambda layer, we will follow these steps:
 
- 1. Crear la librería
- 2. Crear un paquete usando como un uber-jar, ej: usando maven-shade-plugin
- 3. Deploy del lambda layer
- 4. Crear lambda
- 5. Agregar dependencia del paquete
- 6. Deployar lambda y attachear el layer
+ 1. Create the dependency
+ 2. Create an uber-jar of the dependency, ex: using maven-shade-plugin
+ 3. Deploy the Lambda layer
+ 4. Create the Lambda function
+ 5. Add the dependency 
+ 6. Deploy the Lambda and attach the layer
 
-### Creación del layer
-
-Primero creamos la libreria, para esto vamos a crear una simple dependencia que pueda escribir en los logs
+### Layer Creation
+First we create the dependency, for this, we will write a simple class that prints a special message.
 ```
 public class LayerUtil {
     
@@ -29,7 +29,7 @@ public class LayerUtil {
 
 }
 ```
-Configuramos el pom para crear un uber-jar, la idea es que el layer tenga todas las dependencias necesarias para poder usarla sin tener que el lambda traer dependencias adicionales o que tenga que usar otros layers. Para esto usamos ``maven-shade-plugin`` en el pom para que nos facilite esta funcionalidad:
+We configure the pom to create an uber-jar so that the dependency includes all its necessary dependencies when packaging it so it can be used without the Lambdas having to add additional imports or use other layers. For now, we will configure the ``maven-shade-plugin`` in the pom which allows us to do just that:
 ```
 	<build>
 		<plugins>
@@ -52,21 +52,21 @@ Configuramos el pom para crear un uber-jar, la idea es que el layer tenga todas 
 		</plugins>
 	</build>
 ```
-Una vez tenemos la dependencia creada, la empaquetamos con ``mvn clean package``. Teniendo el .jar, para poder ser entendida por el lambda, la dependencia necesita estar dentro de un zip, y el jar en una carpeta especifica: 
+Once we have created the dependency, we package it with ``mvn clean package``. To be able to use the generated .jar in Lambda layers it needs to be archived into a .zip and placed in an specific folder, so that the final .zip file has the following format:
 ```
 +-- lambda-layer-test-dependency.zip
 |   +-- java
 |	|	+-- lib
 |	|	|	+-- lambda-layer-test-dependency-0.0.1-SNAPSHOT.jar
 ```
-Así que creamos una carpeta manual que sea java/lib y ponemos el .jar dentro, y luego lo comprimimos en .zip con el nombre de la dependencia y subimos ese .zip a un Layer:
-![Subida Lamba Layer](https://imgur.com/n4kq8Zc.png)
+So, we create manually a folder called java/lib and place the .jar in it, we then compress the folder into a .zip with the name of the dependency and we upload this to a new Layer, using the AWS console:
+![Upload Lamba Layer](https://imgur.com/n4kq8Zc.png)
 
-### Creación del Lambda
-Teniendo el layer creado, procedemos con la creación del lambda. 
-Lo primero que debemos hacer ahora es importar la dependencia que creamos anteriormente, tomando en cuenta que la idea principal de los Lambda Layer es reducir el tamaño del paquete que se deployea en los lambdas, para lo cual debemos asegurar de que la dependencia que subimos al Layer no se empaquete con el lambda. Para esto usamos el ``<scope>`` de maven puesto en ``provided``, de esta forma lo podemos referenciar y usar de forma local pero al empaquetarlo no lo incluye, sino que lo busca en el runtime, por lo que lo buscará en el layer cuando hagamos el deploy.
+### Lambda Creation
+Having the Layer created, we proceed by creating the Lambda function.
+The first thing to do now is import the dependency we created previously, taking into account that the main idea with Lambda Layer is to reduce the size of the deployment package of the Lambda functions, we need to make sure that the Layer dependency is not included in the Lambda package. For this, we can use the ``<scope>`` option provided by maven and set it to ``<provided>``, so in this way we can reference it and use it locally, but when packaging the Lambda, maven won't include it in the final .jar, but it will instead search for it at runtime, in our case it will find it in the Layer.
 
-El pom quedaria de la siguiente forma, incluyendo también el ``maven-shade-plugin``:
+With this, and including the ``maven-shade-plugin`` as before, the resulting pom will look something like the following:
 ```
       <dependencies>
         <dependency>
@@ -103,8 +103,7 @@ El pom quedaria de la siguiente forma, incluyendo también el ``maven-shade-plug
     </build>
 ```
 
-Luego, creamos un Handler sencillo que llame al método creado en el layer:
-
+We then create a simple Handler that calls the method we created in the layer:
 ```
 public class MainHandler implements RequestHandler<HashMap<String, Object>, Object>{
 
@@ -116,24 +115,24 @@ public class MainHandler implements RequestHandler<HashMap<String, Object>, Obje
 
 }
 ```
-Empaquetamos el lambda corriendo ``mvn clean package`` (**nota**: si no resuelve la dependencia que creamos, intenta empaquetar la dependencia con ``mvn clean install``) y creamos un nuevo lambda subiendo el código creado:
-![Subida lambda](https://imgur.com/mN4Ig0T.png)
+We package the lambda running ``mvn clean package`` and we upload the code and create a new Lambda function using the AWS console:
+![Upload lambda](https://imgur.com/mN4Ig0T.png)
 
-### Prueba
-Sin juntar el Layer al Lambda, el Lambda deberia fallar ya que no encuentra la dependencia. Haremos esta prueba para comprobar que esta efectivamente buscando la dependencia correctamente en el Layer y no esta empaquetada.
-Al correr el lambda con un input cualquiera, nos lanza el siguiente error:
-![Prueba lambda sin layer](https://imgur.com/4pR1Go4.png)
+### Testing
+Without attaching the Layer to the Lambda function, the function should result in error since it will not be able to find the dependency, so we first want to test this behavior to make sure that the Lambda Layer is working as expected, and that we did not package the dependency with the Lambda function. 
 
-Ahora le agregamos el layer:
-![Agregar layer a lambda](https://imgur.com/rv44Rhm.png)
+We run this simple test with some dummy input and we get the following error:
+![test lambda without layer](https://imgur.com/4pR1Go4.png)
 
-Ahora si corremos el lambda, funciona perfecto:
-![Corrida exitosa](https://imgur.com/drFc9pf.png)
+Great! That's what we were expecting, the Lambda is not able to find the created class that is in the Layer. 
+So now we attach the Layer using the AWS console:
+![Attach layer to lambda](https://imgur.com/rv44Rhm.png)
 
-## Mejoras
+If we run the Lambda function now, everything works fine and the message is shown on the log output :![Corrida exitosa](https://imgur.com/drFc9pf.png)
 
-En la prueba inicial, usamos ``maven-shade-plugin`` para poder crear un uber-jar de la dependencia, sin embargo, Lambda Layers espera el jar de una forma especifica, para la cual tuvimos que manualmente crear el .zip necesario para subirlo. Lo ideal seria que esto se genere automaticamente. Para esto podemos usar un assembly descriptor de maven que nos haga este trabajo, y asi al empaquetarlo ya lo tenemos de la manera que buscamos. Para esto creamos el assembly descriptor de la siguiente manera:
+## Improvements
 
+In the previous tests we used ``maven-shade-plugin`` to be able to create an uber-jar of the dependency, but, Lambda Layers expects the jar to be in a specific location, so we had to manually create the .zip file necessary to upload. Ideally, we want this to be generated automatically when we run the maven command, so we prevent errors and for future automated deployments. For this we can use a maven assembly descriptor which we can configure to create this .zip file:
 ```
 <assembly 
     xmlns="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.3" 
@@ -158,10 +157,11 @@ En la prueba inicial, usamos ``maven-shade-plugin`` para poder crear un uber-jar
     </fileSets> 
 </assembly> 
 ```
-El formato se especifica en ``<format>`` como .zip y en el ``<outputDirectory>`` el directorio que queremos que se ponga el output. Luego incluimos el jar que queremos con el ``<include>`` y excluimos el "original-*.jar" que es creado por el ``maven-shade-plugin`` en el ``<exclude>``.
+The ``<format>`` is set to .zip and the ``<outputDirectory>`` is the directory where we want the output to be placed. We then include the generated jar with the ``<include>`` but we also ``<exclude>`` the "original-*.jar" which is created by the ``maven-shade-plugin``
+
+With this, we reference it in the pom file, leaving the ``maven-shade-plugin``. We placed the assembly-descriptor file in ``src/main/resources``, so we set this in the ``maven-assembly`` option of the pom file:
  
-Teniendo esto lo referenciamos en el pom, dejando todavía el plugin de ``maven-shade-plugin``. Como lo colocamos en la carpeta de ``src/main/resources``, apuntamos el ``maven-assembly`` a que busque el descriptor ahí:
-```
+ ```
 	<build>
 		<plugins>
 			<plugin>
@@ -204,42 +204,48 @@ Teniendo esto lo referenciamos en el pom, dejando todavía el plugin de ``maven-
 	</build>
 ```
 
-Ahora al correr ``mvn clean package`` tenemos el .zip con el formato deseado. Esto nos ahorra tiempo de trabajo manual y posible errores. 
+Now, when we run ``mvn clean package`` we have a .zip file with the desired format. This will save us some time and possible mistakes.
 
-## Actualización del Layer
-
-Ahora vamos a ver que pasa una vez actualizamos la dependencia, y creamos una nueva versión del Layer y se la ponemos al Lambda.
-Primero, actualizamos la versión de la dependencia de ``0.0.1-SNAPSHOT`` a ``0.0.2-SNAPSHOT`` en el pom. Luego editamos un poco el código para notar que versión usa, asi que cambiamos lo que imprime el método que habíamos creado anteriormente:
+## Updating the Layer
+Now we want to see what happens if we update the Layer, but no the Lambda function code. So for this, we update our dependencies version from ``0.0.1-SNAPSHOT`` to ``0.0.2-SNAPSHOT`` using the pom. Then we edit the code a bit, so we can tell what version the Lambda is using, so we change the message output in the dependency:
 ```
     public static final void printMethod(String str) {
         System.out.println("This is a message from a layer with a different version!");
         System.out.println("The message is: [" + str + "]");
     }
 ```
-Empaquetamos la dependencia y la subimos a Lambda Layer y creamos una nueva versión, el jar generado contiene la versión ``0.0.2-SNAPSHOT``. 
-Vamos a nuestro lambda, y sin cambiar el código, le quitamos la versión anterior del Layer, y le asociamos la versión nueva del Layer. Al volver a ejecutar el Lambda, este toma los cambios correctamente:
-![Corrida exitosa](https://imgur.com/VuoIGnH.png)
+We package this dependency, and, if the assembly descriptor was configured correctly, we can upload it to Lambda Layer. The create .jar file should have the ``0.0.2-SNAPSHOT``, and we release a new Layer version using this. 
+We then proceed to the Lambda function, and without changing the code, we remove the previous Layer version, and associate the new Layer version. When executing the Lambda, it updates with the new Layer version:
+![Succesful run](https://imgur.com/VuoIGnH.png)
 
-## Conclusión
-Y asi tenemos un lambda corriendo con una dependencia en Lambda layer. Si bien esta prueba es pequeña con una dependencia de pocos KBs, en casos reales, las dependencias pueden hacer que el lambda pese mas de 20MBs, con esto podemos reducir los tamaños de los paquetes separando dependencias que son usadas por diferentes lambdas.
-Al actualizar el Layer, se actualiza la dependencia del Lambda sin tener que modificar directamente el código del Lambda. 
-Ventajas de esto:
- - Actualización de dependencias de manera sencilla sin tener que modificar el Lambda
- - Actualización simultanea de muchos lambdas al actualizar su Layer (especialmente si se usa una herramienta de IaC)
- 
-Posibles desventajas o casos a contemplar:
- - Puede traer problemas de incompatibilidad si los cambios no se prueban primero, especialmente para procesos que incluyan muchos lambdas. Se puede disminuir el riesgo si se realizan pruebas de integración automatizadas
- - El codigo del lambda puede quedar desactualizado en dessintonia con lo que esta deployado. Esto puede causar riesgos cuando se deba actualizar el lambda. 
+## Conclusion
+We now have a Lambda running with a dependency in a Lambda Layer. Even though this was a small test, with a dependency of a few KBs, in real cases some dependencies can make the Lambda function code way more heavy, and considering these dependencies are spread through maybe hundreds of Lambda functions, the impact on deployment speed is noticeable. 
 
-**Importante:** si bien con lambda layer reducimos el tamaño del paquete, actualmente solo se pueden poner 5 layers como maximo para un Lambda, este limite se debe tomar en consideración para cualquier diseño que involucre Lambdas y Layers
+Also, here is a [nice post](https://medium.com/consulner/performance-of-aws-lambda-with-and-without-layers-9bffbb5434f3) about cold and hot start times with/without Lambda layers 
 
-### Mejoras
-Como mejoras se pueden realizar lo siguiente:
+When updating a Layer, the Lambda dependency is updated without having to modify the code directly. 
+This has some advantages:
 
- - El assembly descriptor se creo dentro del proyecto de lambda-layer-test-dependency, podria ser creado como un proyecto aparte y ser reutilizado por otras dependencias
- 
+ - Simple way to update dependencies without having to modify the Lambda directly, specially in cases where there is small changes in the dependency code. 
+ - Specially advantageous when having to update a large amounts of Lambdas (imagine having to manually change the dependency version of 100s of lambdas just because of a minor change) this can be even simpler if a IaC tool is being used. 
+
+Things to consider before using Layers:
+
+ - Managing dependencies inside the Lambda code also has some benefits, since you can create unit tests and make sure that changes to version don't break the current code, if relying solely on Layers, integration tests are heavily recommended. This way you can run some automated tests that execute the lambdas and test their behaviors and report any issues after updating the Layer versions. 
+ - Lambda code may be outdated or not in tune with the code that's actually running, this can be problematic when the Lambda code must be updated. 
+ - It is also recommended to define a good API for the dependencies so that you can take real advantage of the benefits of Lambda Layers and not break the Lambda functions on every Layer update. 
+
+**Important Note:** AWS currently only allows a maximum of 5 Layers attached to a Lambda function, so take this into consideration when designing a solution with Lambda Layers
+
+
+### Possible Improvements and Next Steps
+Things I will test later on if I find the time:
+
+ - Create assembly descriptor as separate project for re-usability 
+ - Use IaC tool for deploying the Layer on multiple Lambda
+
 ### Repos
-El codigo utilizado esta disponible en los siguientes repos:
- - [Dependencia](https://github.com/sbernal93/lambda-layer-test-dependency)
- - [Lambda](https://github.com/sbernal93/lambda-layer-test)
+The code used is available in the following locations:
+ - [Dependency](https://github.com/sbernal93/lambda-layer-test/tree/master/lambda-layer-test-dependency)
+ - [Lambda](https://github.com/sbernal93/lambda-layer-test/tree/master/lambda-layer-test)
 
