@@ -1,0 +1,20 @@
+service: LambdaLayerTestWithServerless
+
+frameworkVersion: ">=1.2.0 <2.0.0"
+
+provider:
+  name: aws
+  runtime: nodejs8.x
+  profile: sabernal
+
+package:
+  artifact: ../../../lambda-layer-test/target/lambda-layer-test-0.0.1-SNAPSHOT.jar
+
+functions:
+  test:
+    handler: com.sbernal93.lambda.handler.MainHandler
+    name: LambdaLayerTestWithServerless
+    description: Some description
+    runtime: java8
+    timeout: 900
+    memorySize: 512
